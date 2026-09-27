@@ -1,0 +1,529 @@
+{
+  "updatedAt": "2026-09-26T23:57:30.841Z",
+  "createdAt": "2026-09-23T22:17:04.637Z",
+  "id": "dIdH9aWdf5kmePli",
+  "name": "My workflow",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        -80
+      ],
+      "id": "919dffe6-b041-4239-8e4c-b37c10adb3da",
+      "name": "Telegram Trigger",
+      "webhookId": "ec53465b-15c2-468e-beb4-e9a818296455",
+      "credentials": {
+        "telegramApi": {
+          "id": "UkkkyyO6JNIIrCS3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1277620c-5e87-4ab3-8a32-a00a975a240d",
+              "leftValue": "={{ $json.message.photo ? true : ($json.message.voice ? true : false) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        176,
+        -80
+      ],
+      "id": "519ea181-8f3a-46a4-8af9-2d64bfaa52b9",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ ($json.message.photo ? $json.message.photo[$json.message.photo.length - 1].file_id : null) || ($json.message.voice ? $json.message.voice.file_id : null) }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        352,
+        -224
+      ],
+      "id": "f06a94dc-2128-4cbd-b8ea-0253e9192902",
+      "name": "Get a file",
+      "webhookId": "f622612f-6ac6-4252-9be7-dd5dff91dcd9",
+      "credentials": {
+        "telegramApi": {
+          "id": "UkkkyyO6JNIIrCS3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = items[0].json;\nconst tieneMedia = input.base64 ? true : false;\n\nlet textoUsuario = \"\";\n\nif (tieneMedia) {\n    if (input.mimeType && input.mimeType.includes('audio')) {\n        textoUsuario = \"AUDIO DEL USUARIO (Analiza el gasto mencionado)\";\n    } else {\n        textoUsuario = input.caption || \"Foto de ticket/comprobante\";\n    }\n} else {\n    textoUsuario = input.message.text || \"\";\n}\n\nif (!tieneMedia && !textoUsuario) {\n    return { json: { error: \"sin_contenido\" } };\n}\n\nconst hoyArgentina = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });\n\nconst prompt = `Actúa como mi contador personal.\nHoy es ${hoyArgentina} (zona horaria Argentina).\nAnaliza este input (Texto, Audio o Foto de ticket) y extrae los datos del gasto.\n\nINPUT USUARIO: \"${textoUsuario}\"\n\nTU TAREA: Genera un JSON estricto con estos campos:\n- \"fecha\": Fecha del gasto en formato YYYY-MM-DD. Si el usuario dice \"ayer\", \"hoy\", \"el lunes\", etc., calculala en base a la fecha de hoy. Si no menciona nada, usá hoy.\n- \"descripcion\": Qué se compró o en qué se gastó (breve, ej: \"Compra en Carrefour\").\n- \"categoria\": Elegí SOLO una de esta lista exacta (con el emoji incluido):\n  \"🍔 Alimentación\", \"🛒 Supermercado\", \"🚗 Combustible\", \"🚌 Transporte\", \"🏠 Hogar\", \"💡 Servicios\", \"💊 Salud\", \"👕 Ropa\", \"🎮 Entretenimiento\", \"📱 Tecnología\", \"📚 Educación\", \"💰 Otros\"\n- \"monto\": El número del gasto (sin signos ni puntos de miles).\n- \"moneda\": \"ARS\" si no se especifica otra cosa, o el código correspondiente si el usuario menciona otra moneda (ej: \"USD\").\n- \"metodo_pago\": Uno de \"Efectivo\", \"Débito\", \"Crédito\", \"Transferencia\". Si no se menciona, devolvé \"No especificado\".\n\nSi no encontrás un gasto claro, devolvé monto 0.`;\n\nconst parts = [{ text: prompt }];\n\nif (tieneMedia) {\n    parts.push({\n        inline_data: {\n            mime_type: input.mimeType,\n            data: input.base64\n        }\n    });\n}\n\nreturn { json: { geminiBody: { contents: [{ parts: parts }] } } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -64
+      ],
+      "id": "2689bd83-1ab5-4e83-9983-9b4ec4785c1b",
+      "name": "Preparar Datos"
+    },
+    {
+      "parameters": {
+        "jsCode": "const buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst base64 = buffer.toString('base64');\n\nreturn {\n  json: {\n    base64: base64,\n    mimeType: items[0].binary.data.mimeType,\n    caption: $('Telegram Trigger').item.json.message.caption || \"\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -224
+      ],
+      "id": "d67f964b-dc08-4ad8-a050-1e463cd87268",
+      "name": "Convertir Base64"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=TU_API_KEY_AQUI",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{ $json.geminiBody.contents }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        832,
+        -64
+      ],
+      "id": "04b04d1f-3479-4b38-9cf9-36b90b3065b7",
+      "name": "Gemini Finanza",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.candidates[0].content.parts[0].text;\nconst jsonMatch = text.match(/\\{([\\s\\S]*)\\}/);\nreturn JSON.parse(jsonMatch ? jsonMatch[0] : '{}');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        -64
+      ],
+      "id": "4124b57e-2be9-4b0a-9b9c-9cc5e4c738fe",
+      "name": "Limpiar Json"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dec814cf-ac27-4951-8f6f-9f51502b5822",
+              "leftValue": "={{ $json.monto > 0 && $json.categoria !== \"💰 Otros\" && $json.descripcion !== \"Gasto no especificado\" }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        -64
+      ],
+      "id": "217c0ce9-6d14-4101-8cbb-7a3a330aa423",
+      "name": "Datos completos ?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "⚠️ No pude identificar bien tu gasto.  Escribime de nuevo el gasto completo en un solo mensaje, por ejemplo: \"Gasté 40 mil en supermercado con débito\"",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1504,
+        -48
+      ],
+      "id": "2b5d7e8c-e060-4a77-9825-45e88bac696d",
+      "name": "Pedir Datos Faltantes",
+      "webhookId": "76277627-a3fb-41e0-868b-4dda26258a86",
+      "credentials": {
+        "telegramApi": {
+          "id": "UkkkyyO6JNIIrCS3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ Gasto registrado\n\n📝 {{ $json.Descripcion }}\n💰 ${{ $json.Monto }} {{ $json.Moneda }}\n📂 {{ $json.Categoria }}\n💳 {{ $json['MetodoPago '] }}\n📅 {{ $json.Fecha }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1504,
+        -224
+      ],
+      "id": "3823b2ba-c8ce-4a5e-a91a-9df2115e069f",
+      "name": "Respuesta final",
+      "webhookId": "8342d95c-6f38-45eb-a872-bbaf364da87f",
+      "credentials": {
+        "telegramApi": {
+          "id": "UkkkyyO6JNIIrCS3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/TU_SHEET_ID_AQUI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/TU_SHEET_ID_AQUI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha": "={{ $json.fecha }}",
+            "Categoria": "={{ $json.categoria }}",
+            "Descripcion": "={{ $json.descripcion }}",
+            "Monto": "={{ $json.monto }}",
+            "Moneda": "={{ $json.moneda }}",
+            "MetodoPago ": "={{ $json.metodo_pago }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha",
+              "displayName": "Fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Categoria",
+              "displayName": "Categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Descripcion",
+              "displayName": "Descripcion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Monto",
+              "displayName": "Monto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Moneda",
+              "displayName": "Moneda",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MetodoPago ",
+              "displayName": "MetodoPago ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        -224
+      ],
+      "id": "be43b095-141b-4d27-9978-b390340c9d2a",
+      "name": "Agregar a sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "9DqKy2uVdTfOMtNd",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "💸 Gestor de Gastos con IA\nTexto o audio → Gemini extrae los datos del gasto → \nvalida que estén completos → guarda en Sheets → \nconfirma por Telegram.",
+        "height": 96,
+        "width": 384
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        752,
+        -208
+      ],
+      "typeVersion": 1,
+      "id": "18a0ec4f-f839-4540-a603-80357a357e76",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "Convertir Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convertir Base64": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos": {
+      "main": [
+        [
+          {
+            "node": "Gemini Finanza",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Finanza": {
+      "main": [
+        [
+          {
+            "node": "Limpiar Json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar Json": {
+      "main": [
+        [
+          {
+            "node": "Datos completos ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos completos ?": {
+      "main": [
+        [
+          {
+            "node": "Agregar a sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pedir Datos Faltantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agregar a sheet": {
+      "main": [
+        [
+          {
+            "node": "Respuesta final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "97f73796-c01d-4be8-bcba-7730f8eff612",
+  "activeVersionId": null,
+  "versionCounter": 210,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "shared": [
+    {
+      "updatedAt": "2026-09-23T22:17:04.769Z",
+      "createdAt": "2026-09-23T22:17:04.769Z",
+      "role": "workflow:owner",
+      "workflowId": "dIdH9aWdf5kmePli",
+      "projectId": "PzbtQxAJT3steSBb",
+      "project": {
+        "updatedAt": "2026-09-23T21:38:43.308Z",
+        "createdAt": "2026-09-23T21:34:56.745Z",
+        "id": "PzbtQxAJT3steSBb",
+        "name": "Mi Proyecto Personal",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "ca9962a8-ba4b-4efc-8cdd-918588773f5e"
+      }
+    }
+  ],
+  "tags": [],
+  "parentFolder": null,
+  "activeVersion": null,
+  "scopes": [
+    "execution:reveal",
+    "workflow:create",
+    "workflow:delete",
+    "workflow:disableRedaction",
+    "workflow:enableRedaction",
+    "workflow:execute",
+    "workflow:execute-chat",
+    "workflow:export",
+    "workflow:import",
+    "workflow:list",
+    "workflow:move",
+    "workflow:publish",
+    "workflow:read",
+    "workflow:share",
+    "workflow:unpublish",
+    "workflow:unshare",
+    "workflow:update"
+  ],
+  "checksum": "164e3de49244c8956eae2f94dccb334911c4a44dc84ff7daf429b1d73a56574c"
+}
